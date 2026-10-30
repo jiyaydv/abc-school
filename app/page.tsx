@@ -69,12 +69,7 @@ function CountUp({
   const [display, setDisplay] = useState(0);
 
   useEffect(() => {
-    if (!inView || typeof value !== "number") {
-      if (typeof value !== "number") {
-        setDisplay(0);
-      }
-      return;
-    }
+    if (!inView || typeof value !== "number") return;
 
     let frame = 0;
     const duration = 1200;

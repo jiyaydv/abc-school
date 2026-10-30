@@ -237,26 +237,6 @@ export default function AcademicsPageContent() {
 
   return (
     <>
-      <header className="site-header">
-        <div className="header-inner">
-          <Link className="brand" href="/" aria-label="ABC School home">
-            <span className="brand-mark" aria-hidden="true">A</span>
-            <span>ABC School</span>
-          </Link>
-          <nav className="main-nav" aria-label="Main navigation">
-            <Link href="/">Home</Link>
-            <Link href="/about">About</Link>
-            <Link className="nav-home" href="/academics" aria-current="page">Academics</Link>
-            <Link href="/#classes">Classes</Link>
-            <Link href="/#events">Events</Link>
-            <Link href="/contact">Contact</Link>
-          </nav>
-          <Link className="header-cta" href="/admissions">
-            Admissions <ArrowIcon />
-          </Link>
-        </div>
-      </header>
-
       <main className="academics-page">
         <section className="academics-hero" aria-labelledby="academics-title">
           <div className="academics-hero-image" />
@@ -448,47 +428,6 @@ export default function AcademicsPageContent() {
           </Link>
         </section>
       </main>
-
-      <footer className="site-footer">
-        <div className="footer-main section-wrap">
-          <div className="footer-brand-column">
-            <Link className="brand footer-brand" href="/">
-              <span className="brand-mark" aria-hidden="true">A</span>
-              <span>ABC School</span>
-            </Link>
-            <p>A place to learn, belong,<br />and grow into what’s next.</p>
-            <a className="footer-email" href="mailto:hello@abcschool.edu">hello@abcschool.edu</a>
-          </div>
-          <div className="footer-column">
-            <h2>Explore</h2>
-            <Link href="/about">About</Link>
-            <Link href="/admissions">Admissions</Link>
-            <Link href="/academics">Academics</Link>
-            <Link href="/#classes">Classes</Link>
-          </div>
-          <div className="footer-column">
-            <h2>Stay connected</h2>
-            <Link href="/#events">Events</Link>
-            <Link href="/contact">Contact</Link>
-            <Link href="/privacy">Privacy</Link>
-            <Link href="/terms">Terms</Link>
-          </div>
-          <div className="footer-column footer-contact">
-            <h2>Come say hello</h2>
-            <address>123 Learning Lane<br />Your City, ST 00000</address>
-            <a href="tel:+15551234567">(555) 123-4567</a>
-            <span>Monday–Friday, 8:00 am–4:00 pm</span>
-          </div>
-        </div>
-        <div className="footer-bottom section-wrap">
-          <span>© 2026 ABC School. All rights reserved.</span>
-          <div className="footer-policies">
-            <Link href="/privacy">Privacy</Link>
-            <Link href="/terms">Terms</Link>
-          </div>
-          <Link href="#academics-title">Back to top ↑</Link>
-        </div>
-      </footer>
     </>
   );
 }

@@ -52,7 +52,7 @@ const faqs = [
   {
     question: "When will we hear back after sending an inquiry?",
     answer:
-      "This page prepares an email to the school; it does not send or store your information automatically. Once you send the email, the admissions office can follow up using the contact details you provide.",
+      "Your inquiry is sent directly to the admissions team. They can follow up using the contact details you provide.",
   },
 ];
 
@@ -81,26 +81,6 @@ function validateStep(fields: InquiryField[], inquiry: Inquiry) {
   }, {});
 }
 
-function buildInquiryMailto(inquiry: Inquiry) {
-  const subject = `Admissions inquiry for ${inquiry.studentName || "ABC School"}`;
-  const body = [
-    "Hello ABC School Admissions,",
-    "",
-    "I would like to learn more about applying.",
-    "",
-    `Parent / guardian: ${inquiry.guardianName}`,
-    `Relationship: ${inquiry.relationship}`,
-    `Email: ${inquiry.email}`,
-    `Phone: ${inquiry.phone || "Not provided"}`,
-    `Student: ${inquiry.studentName}`,
-    `Intended grade: ${inquiry.grade}`,
-    `Preferred start: ${inquiry.startTerm}`,
-    "",
-    `Message: ${inquiry.message || "Please contact me with next steps."}`,
-  ].join("\n");
-  return `mailto:hello@abcschool.edu?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-}
-
 function ArrowIcon() {
   return (
     <svg aria-hidden="true" viewBox="0 0 20 20" fill="none">
@@ -114,9 +94,12 @@ export default function AdmissionsPageContent() {
   const [inquiry, setInquiry] = useState<Inquiry>(emptyInquiry);
   const [errors, setErrors] = useState<InquiryErrors>({});
   const [submitted, setSubmitted] = useState(false);
+  const [submissionError, setSubmissionError] = useState("");
+  const [isSending, setIsSending] = useState(false);
 
   function updateField(field: InquiryField, value: string) {
     setInquiry((current) => ({ ...current, [field]: value }));
+    setSubmissionError("");
     if (errors[field]) {
       setErrors((current) => ({ ...current, [field]: validateField(field, value) }));
     }
@@ -129,11 +112,29 @@ export default function AdmissionsPageContent() {
     if (Object.keys(nextErrors).length === 0) setStep(2);
   }
 
-  function handleInquirySubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const nextErrors = validateStep(["studentName", "grade"], inquiry);
     setErrors(nextErrors);
-    if (Object.keys(nextErrors).length === 0) setSubmitted(true);
+    if (Object.keys(nextErrors).length > 0) return;
+
+    setSubmissionError("");
+    setIsSending(true);
+
+    try {
+      const response = await fetch("/api/send-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ formType: "admissions", ...inquiry }),
+      });
+
+      if (!response.ok) throw new Error("Unable to send inquiry.");
+      setSubmitted(true);
+    } catch {
+      setSubmissionError("We couldn't send your inquiry. Please try again.");
+    } finally {
+      setIsSending(false);
+    }
   }
 
   function renderError(field: InquiryField) {
@@ -142,26 +143,6 @@ export default function AdmissionsPageContent() {
 
   return (
     <>
-      <header className="site-header">
-        <div className="header-inner">
-          <Link className="brand" href="/" aria-label="ABC School home">
-            <span className="brand-mark" aria-hidden="true">A</span>
-            <span>ABC School</span>
-          </Link>
-          <nav className="main-nav" aria-label="Main navigation">
-            <Link href="/">Home</Link>
-            <Link href="/about">About</Link>
-            <Link href="/academics">Academics</Link>
-            <Link href="/#classes">Classes</Link>
-            <Link href="/#events">Events</Link>
-            <Link className="nav-home" href="/admissions" aria-current="page">Admissions</Link>
-          </nav>
-          <Link className="header-cta" href="/contact">
-            Contact <ArrowIcon />
-          </Link>
-        </div>
-      </header>
-
       <main className="admissions-page">
         <section className="admissions-hero" aria-labelledby="admissions-title">
           <div className="admissions-hero-image" />
@@ -197,7 +178,7 @@ export default function AdmissionsPageContent() {
             <div className="process-steps">
               <div><span>01</span><strong>Share your details</strong><small>Tell us how to reach you.</small></div>
               <div><span>02</span><strong>Tell us about your student</strong><small>Choose a grade and start term.</small></div>
-              <div><span>03</span><strong>Send your inquiry</strong><small>Your email app prepares the message.</small></div>
+              <div><span>03</span><strong>Send your inquiry</strong><small>We’ll send it to the admissions team.</small></div>
             </div>
           </div>
         </section>
@@ -224,7 +205,7 @@ export default function AdmissionsPageContent() {
               <div className="inquiry-progress">
                 <div className="inquiry-step-label">
                   <span>STEP {submitted ? "02" : `0${step}`} <i>/ 02</i></span>
-                  <span>{submitted ? "Ready to send" : step === 1 ? "Your contact details" : "Student information"}</span>
+                  <span>{submitted ? "Inquiry sent" : step === 1 ? "Your contact details" : "Student information"}</span>
                 </div>
                 <div className="inquiry-progress-track" aria-label={`Step ${step} of 2`}>
                   <span className={step === 1 && !submitted ? "is-current" : "is-complete"} />
@@ -235,20 +216,19 @@ export default function AdmissionsPageContent() {
               {submitted ? (
                 <div className="inquiry-success" aria-live="polite">
                   <span className="success-mark" aria-hidden="true">✓</span>
-                  <p className="eyebrow">Inquiry ready</p>
-                  <h3>One last little step.</h3>
+                  <p className="eyebrow">Inquiry sent</p>
+                  <h3>Thank you for reaching out.</h3>
                   <p>
-                    Your details are ready to send. Choose the button below
-                    to open your email app with your inquiry pre-filled.
-                    Nothing is sent until you press send in your email app.
+                    Your inquiry has been sent to our admissions team. We’ll
+                    follow up using the contact details you provided.
                   </p>
-                  <a className="button button-dark" href={buildInquiryMailto(inquiry)}>
-                    Open email to send inquiry <ArrowIcon />
-                  </a>
                   <button
                     className="edit-inquiry"
                     type="button"
-                    onClick={() => setSubmitted(false)}
+                    onClick={() => {
+                      setSubmitted(false);
+                      setStep(2);
+                    }}
                   >
                     Review my information
                   </button>
@@ -331,10 +311,10 @@ export default function AdmissionsPageContent() {
                   <button className="button button-dark form-next" type="submit">
                     Continue to student details <ArrowIcon />
                   </button>
-                  <p className="form-privacy">Your information is used to prepare an email inquiry and is not stored by this demo form.</p>
+                  <p className="form-privacy">Your information is used to respond to your inquiry and is not stored by this form.</p>
                 </form>
               ) : (
-                <form className="inquiry-form" onSubmit={handleInquirySubmit} noValidate>
+                <form className="inquiry-form" onSubmit={handleSubmit} noValidate>
                   <h3>Tell us about your student.</h3>
                   <p className="form-intro">This helps our team share relevant information.</p>
                   <div className="form-field">
@@ -416,11 +396,12 @@ export default function AdmissionsPageContent() {
                     >
                       ← Back
                     </button>
-                    <button className="button button-dark" type="submit">
-                      Review inquiry <ArrowIcon />
+                    <button className="button button-dark" type="submit" disabled={isSending}>
+                      {isSending ? "Sending..." : "Send inquiry"} <ArrowIcon />
                     </button>
                   </div>
-                  <p className="form-privacy">No account needed. You’ll review your message before sending it from your email app.</p>
+                  {submissionError && <p className="field-error" role="alert">{submissionError}</p>}
+                  <p className="form-privacy">Your inquiry will be sent securely to the admissions team.</p>
                 </form>
               )}
             </div>
@@ -452,47 +433,6 @@ export default function AdmissionsPageContent() {
           </div>
         </section>
       </main>
-
-      <footer className="site-footer">
-        <div className="footer-main section-wrap">
-          <div className="footer-brand-column">
-            <Link className="brand footer-brand" href="/">
-              <span className="brand-mark" aria-hidden="true">A</span>
-              <span>ABC School</span>
-            </Link>
-            <p>A place to learn, belong,<br />and grow into what’s next.</p>
-            <a className="footer-email" href="mailto:hello@abcschool.edu">hello@abcschool.edu</a>
-          </div>
-          <div className="footer-column">
-            <h2>Explore</h2>
-            <Link href="/about">About</Link>
-            <Link href="/admissions">Admissions</Link>
-            <Link href="/academics">Academics</Link>
-            <Link href="/#classes">Classes</Link>
-          </div>
-          <div className="footer-column">
-            <h2>Stay connected</h2>
-            <Link href="/#events">Events</Link>
-            <Link href="/contact">Contact</Link>
-            <Link href="/privacy">Privacy</Link>
-            <Link href="/terms">Terms</Link>
-          </div>
-          <div className="footer-column footer-contact">
-            <h2>Come say hello</h2>
-            <address>123 Learning Lane<br />Your City, ST 00000</address>
-            <a href="tel:+15551234567">(555) 123-4567</a>
-            <span>Monday–Friday, 8:00 am–4:00 pm</span>
-          </div>
-        </div>
-        <div className="footer-bottom section-wrap">
-          <span>© 2026 ABC School. All rights reserved.</span>
-          <div className="footer-policies">
-            <Link href="/privacy">Privacy</Link>
-            <Link href="/terms">Terms</Link>
-          </div>
-          <Link href="#admissions-title">Back to top ↑</Link>
-        </div>
-      </footer>
     </>
   );
 }

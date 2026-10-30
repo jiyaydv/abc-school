@@ -29,6 +29,24 @@ To learn more about Next.js, take a look at the following resources:
 
 You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
 
+## Form email setup
+
+Contact and admissions inquiries are sent by the server through Gmail SMTP. In the Google account that will send the emails, enable 2-Step Verification and create an App Password under **Google Account > Security > 2-Step Verification > App passwords**. Use that 16-character password, not your normal Google password.
+
+Create `.env.local` in the project root with:
+
+```env
+GMAIL_USER=your-school-gmail@gmail.com
+GMAIL_APP_PASSWORD=your-16-character-app-password
+GMAIL_TO=yjiya473@gmail.com
+```
+
+`GMAIL_TO` is optional; when omitted, emails go to `yjiya473@gmail.com`. Keep `.env.local` private and never commit or expose these values to client-side code. Restart the Next.js dev server after changing the file.
+
+To test, run `npm run dev`, submit the Contact form and an Admissions inquiry with valid details, and confirm both messages arrive in the configured inbox. Check the dev-server terminal for delivery errors. Avoid using real students' sensitive information in test submissions.
+
+For deployment, add the same environment variables to the hosting provider's server-side environment settings. Do not prefix them with `NEXT_PUBLIC_`.
+
 ## Deploy on Vercel
 
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.

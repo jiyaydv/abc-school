@@ -27,45 +27,32 @@ function ArrowIcon() {
 
 export default function ContactPageContent() {
   const [message, setMessage] = useState<ContactMessage>(emptyMessage);
-  const [emailHref, setEmailHref] = useState("");
+  const [submissionStatus, setSubmissionStatus] = useState<"success" | "error" | "">("");
+  const [isSending, setIsSending] = useState(false);
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const subject = message.subject.trim() || "Website inquiry";
-    const body = [
-      `Name: ${message.name.trim()}`,
-      `Email: ${message.email.trim()}`,
-      "",
-      message.message.trim(),
-    ].join("\n");
+    setIsSending(true);
+    setSubmissionStatus("");
 
-    setEmailHref(
-      `mailto:hello@abcschool.edu?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`,
-    );
+    try {
+      const response = await fetch("/api/send-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ formType: "contact", ...message }),
+      });
+
+      if (!response.ok) throw new Error("Unable to send message.");
+      setSubmissionStatus("success");
+    } catch {
+      setSubmissionStatus("error");
+    } finally {
+      setIsSending(false);
+    }
   }
 
   return (
     <>
-      <header className="site-header">
-        <div className="header-inner">
-          <Link className="brand" href="/" aria-label="ABC School home">
-            <span className="brand-mark" aria-hidden="true">A</span>
-            <span>ABC School</span>
-          </Link>
-          <nav className="main-nav" aria-label="Main navigation">
-            <Link href="/">Home</Link>
-            <Link href="/about">About</Link>
-            <Link href="/academics">Academics</Link>
-            <Link href="/#classes">Classes</Link>
-            <Link href="/#events">Events</Link>
-            <Link className="nav-home" href="/contact" aria-current="page">Contact</Link>
-          </nav>
-          <Link className="header-cta" href="/admissions">
-            Admissions <ArrowIcon />
-          </Link>
-        </div>
-      </header>
-
       <main className="contact-page contact-short-page">
         <section className="contact-short-heading" aria-labelledby="contact-title">
           <h1 id="contact-title">Contact</h1>
@@ -134,7 +121,10 @@ export default function ContactPageContent() {
                   autoComplete="name"
                   placeholder="Your name"
                   value={message.name}
-                  onChange={(event) => setMessage({ ...message, name: event.target.value })}
+                  onChange={(event) => {
+                    setMessage({ ...message, name: event.target.value });
+                    setSubmissionStatus("");
+                  }}
                   required
                 />
               </div>
@@ -147,7 +137,10 @@ export default function ContactPageContent() {
                   autoComplete="email"
                   placeholder="Email address"
                   value={message.email}
-                  onChange={(event) => setMessage({ ...message, email: event.target.value })}
+                  onChange={(event) => {
+                    setMessage({ ...message, email: event.target.value });
+                    setSubmissionStatus("");
+                  }}
                   required
                 />
               </div>
@@ -158,7 +151,10 @@ export default function ContactPageContent() {
                   name="subject"
                   placeholder="What is your message about?"
                   value={message.subject}
-                  onChange={(event) => setMessage({ ...message, subject: event.target.value })}
+                  onChange={(event) => {
+                    setMessage({ ...message, subject: event.target.value });
+                    setSubmissionStatus("");
+                  }}
                 />
               </div>
               <div className="contact-form-field contact-form-message">
@@ -169,68 +165,28 @@ export default function ContactPageContent() {
                   rows={4}
                   placeholder="Write your message"
                   value={message.message}
-                  onChange={(event) => setMessage({ ...message, message: event.target.value })}
+                  onChange={(event) => {
+                    setMessage({ ...message, message: event.target.value });
+                    setSubmissionStatus("");
+                  }}
                   required
                 />
               </div>
-              {emailHref ? (
-                <div className="contact-email-ready" role="status">
-                  <span>Your message is ready. Your email app will open so you can send it.</span>
-                  <a className="button button-dark" href={emailHref}>
-                    Open email <ArrowIcon />
-                  </a>
-                </div>
-              ) : (
-                <button className="button button-dark contact-send-button" type="submit">
-                  Send message <ArrowIcon />
-                </button>
+              {submissionStatus && (
+                <p className="contact-email-ready" role={submissionStatus === "error" ? "alert" : "status"}>
+                  {submissionStatus === "success"
+                    ? "Thank you. Your message has been sent to ABC School."
+                    : "We couldn't send your message. Please try again."}
+                </p>
               )}
-              <p className="contact-form-note">This form opens your email app; it does not store or send your message automatically.</p>
+              <button className="button button-dark contact-send-button" type="submit" disabled={isSending}>
+                {isSending ? "Sending..." : "Send message"} <ArrowIcon />
+              </button>
+              <p className="contact-form-note">Your message will be sent securely to the ABC School team.</p>
             </form>
           </section>
         </section>
       </main>
-
-      <footer className="site-footer">
-        <div className="footer-main section-wrap">
-          <div className="footer-brand-column">
-            <Link className="brand footer-brand" href="/">
-              <span className="brand-mark" aria-hidden="true">A</span>
-              <span>ABC School</span>
-            </Link>
-            <p>A place to learn, belong,<br />and grow into what’s next.</p>
-            <a className="footer-email" href="mailto:hello@abcschool.edu">hello@abcschool.edu</a>
-          </div>
-          <div className="footer-column">
-            <h2>Explore</h2>
-            <Link href="/about">About</Link>
-            <Link href="/admissions">Admissions</Link>
-            <Link href="/academics">Academics</Link>
-            <Link href="/#classes">Classes</Link>
-          </div>
-          <div className="footer-column">
-            <h2>Stay connected</h2>
-            <Link href="/#events">Events</Link>
-            <Link href="/contact">Contact</Link>
-            <Link href="/privacy">Privacy</Link>
-            <Link href="/terms">Terms</Link>
-          </div>
-          <div className="footer-column footer-contact">
-            <h2>Come say hello</h2>
-            <address>123 Learning Lane<br />Your City, ST 00000</address>
-            <a href="tel:+15551234567">(555) 123-4567</a>
-            <span>Monday–Friday, 8:00 am–4:00 pm</span>
-          </div>
-        </div>
-        <div className="footer-bottom section-wrap">
-          <span>© 2026 ABC School. All rights reserved.</span>
-          <div className="footer-policies">
-            <Link href="/privacy">Privacy</Link>
-            <Link href="/terms">Terms</Link>
-          </div>
-          <Link href="#contact-title">Back to top ↑</Link>
-        </div>
-      </footer>
     </>
   );
 }
