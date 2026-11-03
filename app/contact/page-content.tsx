@@ -28,12 +28,14 @@ function ArrowIcon() {
 export default function ContactPageContent() {
   const [message, setMessage] = useState<ContactMessage>(emptyMessage);
   const [submissionStatus, setSubmissionStatus] = useState<"success" | "error" | "">("");
+  const [submissionError, setSubmissionError] = useState("");
   const [isSending, setIsSending] = useState(false);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setIsSending(true);
     setSubmissionStatus("");
+    setSubmissionError("");
 
     try {
       const response = await fetch("/api/send-email", {
@@ -42,10 +44,18 @@ export default function ContactPageContent() {
         body: JSON.stringify({ formType: "contact", ...message }),
       });
 
-      if (!response.ok) throw new Error("Unable to send message.");
+      if (!response.ok) {
+        const result = await response.json().catch(() => null);
+        throw new Error(
+          typeof result?.error === "string" ? result.error : "Unable to send message.",
+        );
+      }
       setSubmissionStatus("success");
-    } catch {
+    } catch (error) {
       setSubmissionStatus("error");
+      setSubmissionError(
+        error instanceof Error ? error.message : "We couldn't send your message. Please try again.",
+      );
     } finally {
       setIsSending(false);
     }
@@ -176,7 +186,7 @@ export default function ContactPageContent() {
                 <p className="contact-email-ready" role={submissionStatus === "error" ? "alert" : "status"}>
                   {submissionStatus === "success"
                     ? "Thank you. Your message has been sent to ABC School."
-                    : "We couldn't send your message. Please try again."}
+                    : submissionError || "We couldn't send your message. Please try again."}
                 </p>
               )}
               <button className="button button-dark contact-send-button" type="submit" disabled={isSending}>

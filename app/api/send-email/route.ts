@@ -62,6 +62,24 @@ function isMessage(value: unknown, required: boolean): value is string {
   );
 }
 
+function containsUnsafePattern(value: string) {
+  const containsHtmlOrScript =
+    /<\s*\/?\s*[a-z][^>]*(?:>|$)|<!--|javascript\s*:|\bon[a-z]+\s*=/i.test(value);
+  const containsSqlInjection =
+    /\b(?:union\s+select|select\s+.+\s+from|insert\s+into|update\s+\w+\s+set|delete\s+from|drop\s+(?:table|database)|alter\s+table|create\s+table|exec(?:ute)?\s*\()/i.test(
+      value,
+    ) ||
+    /(?:--|\/\*|\*\/|;\s*(?:select|insert|update|delete|drop)\b)/i.test(value) ||
+    /['"]\s*(?:or|and)\s+['"]?\w+['"]?\s*=\s*['"]?\w+/i.test(value) ||
+    /\b(?:or|and)\s+\d+\s*=\s*\d+/i.test(value);
+
+  return containsHtmlOrScript || containsSqlInjection;
+}
+
+function countWords(value: string) {
+  return value.trim().split(/\s+/).filter(Boolean).length;
+}
+
 function responseError(message: string, status: number) {
   return Response.json({ error: message }, { status });
 }
@@ -95,9 +113,7 @@ function isSubmission(value: Record<string, unknown>): value is Record<string, u
       isText(value.guardianName, 1, 120) &&
       isEmail(value.email) &&
       typeof value.phone === "string" &&
-      value.phone.length <= 30 &&
-      !/[\u0000-\u001F\u007F]/.test(value.phone) &&
-      (!value.phone.trim() || /^[+()\d\s.-]{7,20}$/.test(value.phone.trim())) &&
+      /^\d{10}$/.test(value.phone) &&
       typeof value.relationship === "string" &&
       relationships.includes(value.relationship) &&
       isText(value.studentName, 1, 120) &&
@@ -110,6 +126,26 @@ function isSubmission(value: Record<string, unknown>): value is Record<string, u
   }
 
   return false;
+}
+
+function getValidationError(value: unknown) {
+  if (!isRecord(value)) return "Please check the form details and try again.";
+
+  for (const fieldValue of Object.values(value)) {
+    if (typeof fieldValue === "string" && containsUnsafePattern(fieldValue)) {
+      return "HTML, script, and SQL-like input isn't allowed. Please remove it and try again.";
+    }
+  }
+
+  if (!isSubmission(value)) {
+    return "Please check the form details, email address, and phone number and try again.";
+  }
+
+  if (countWords(value.message) < 10) {
+    return "Please enter at least 10 words in your message.";
+  }
+
+  return null;
 }
 
 function formatEmail(submission: Submission) {
@@ -139,7 +175,7 @@ function formatEmail(submission: Submission) {
     };
   }
 
-  const message = submission.message.trim() || "Please contact me with next steps.";
+  const message = submission.message.trim();
   return {
     subject: `Admissions inquiry: ${cleanHeaderValue(submission.studentName)}`,
     replyTo: submission.email.trim(),
@@ -180,6 +216,8 @@ export async function POST(request: Request) {
     return responseError("Request body must be valid JSON.", 400);
   }
 
+  const validationError = getValidationError(payload);
+  if (validationError) return responseError(validationError, 400);
   if (!isRecord(payload) || !isSubmission(payload)) {
     return responseError("Please check the form details and try again.", 400);
   }

@@ -67,8 +67,11 @@ function validateField(field: InquiryField, value: string) {
   if (field === "relationship" && !trimmed) return "Please choose your relationship to the student.";
   if (field === "studentName" && !trimmed) return "Please enter the student’s name.";
   if (field === "grade" && !trimmed) return "Please choose an intended grade.";
-  if (field === "phone" && trimmed && !/^[+()\d\s.-]{7,20}$/.test(trimmed)) {
-    return "Enter a valid phone number, or leave this field blank.";
+  if (field === "phone" && !/^\d{10}$/.test(trimmed)) {
+    return "Enter a phone number with exactly 10 digits.";
+  }
+  if (field === "message" && trimmed.split(/\s+/).filter(Boolean).length < 10) {
+    return "Please enter at least 10 words in your message.";
   }
   return "";
 }
@@ -114,7 +117,7 @@ export default function AdmissionsPageContent() {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const nextErrors = validateStep(["studentName", "grade"], inquiry);
+    const nextErrors = validateStep(["studentName", "grade", "message"], inquiry);
     setErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) return;
 
@@ -128,10 +131,17 @@ export default function AdmissionsPageContent() {
         body: JSON.stringify({ formType: "admissions", ...inquiry }),
       });
 
-      if (!response.ok) throw new Error("Unable to send inquiry.");
+      if (!response.ok) {
+        const result = await response.json().catch(() => null);
+        throw new Error(
+          typeof result?.error === "string" ? result.error : "Unable to send inquiry.",
+        );
+      }
       setSubmitted(true);
-    } catch {
-      setSubmissionError("We couldn't send your inquiry. Please try again.");
+    } catch (error) {
+      setSubmissionError(
+        error instanceof Error ? error.message : "We couldn't send your inquiry. Please try again.",
+      );
     } finally {
       setIsSending(false);
     }
@@ -272,18 +282,21 @@ export default function AdmissionsPageContent() {
                       {renderError("email")}
                     </div>
                     <div className="form-field">
-                      <label htmlFor="phone">Phone number <small>Optional</small></label>
+                      <label htmlFor="phone">Phone number <span>*</span></label>
                       <input
                         id="phone"
                         name="phone"
                         type="tel"
+                        inputMode="numeric"
                         autoComplete="tel"
+                        maxLength={10}
                         value={inquiry.phone}
                         onChange={(event) => updateField("phone", event.target.value)}
                         onBlur={(event) => setErrors((current) => ({ ...current, phone: validateField("phone", event.target.value) }))}
                         aria-invalid={Boolean(errors.phone)}
                         aria-describedby={errors.phone ? "phone-error" : undefined}
-                        placeholder="(555) 123-4567"
+                        placeholder="5551234567"
+                        required
                       />
                       {renderError("phone")}
                     </div>
@@ -378,15 +391,20 @@ export default function AdmissionsPageContent() {
                     </div>
                   </div>
                   <div className="form-field">
-                    <label htmlFor="message">What would you like to know? <small>Optional</small></label>
+                    <label htmlFor="message">What would you like to know? <span>*</span></label>
                     <textarea
                       id="message"
                       name="message"
                       rows={3}
                       value={inquiry.message}
                       onChange={(event) => updateField("message", event.target.value)}
+                      onBlur={(event) => setErrors((current) => ({ ...current, message: validateField("message", event.target.value) }))}
+                      aria-invalid={Boolean(errors.message)}
+                      aria-describedby={errors.message ? "message-error" : undefined}
                       placeholder="Ask us about visits, the application, or anything else."
+                      required
                     />
+                    {renderError("message")}
                   </div>
                   <div className="form-actions">
                     <button
