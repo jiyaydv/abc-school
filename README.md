@@ -33,6 +33,8 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 
 Contact and admissions inquiries are sent by the server through Gmail SMTP. In the Google account that will send the emails, enable 2-Step Verification and create an App Password under **Google Account > Security > 2-Step Verification > App passwords**. Use that 16-character password, not your normal Google password.
 
+Form submissions are validated on the server and sent with both plain-text and HTML email bodies. User-provided content is HTML-escaped in the HTML body, so markup is displayed as text.
+
 Create `.env.local` in the project root with:
 
 ```env

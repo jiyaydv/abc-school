@@ -1,3 +1,4 @@
+import escapeHtml from "escape-html";
 import nodemailer from "nodemailer";
 
 type ContactSubmission = {
@@ -31,13 +32,33 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function isText(value: unknown, minLength: number, maxLength: number): value is string {
-  return typeof value === "string" && value.trim().length >= minLength && value.length <= maxLength;
+  return (
+    typeof value === "string" &&
+    value.trim().length >= minLength &&
+    value.length <= maxLength &&
+    !/[\u0000-\u001F\u007F]/.test(value)
+  );
 }
 
 function isEmail(value: unknown): value is string {
+  if (typeof value !== "string") return false;
+  const email = value.trim();
+
   return (
-    isText(value, 3, 254) &&
-    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim())
+    email.length >= 3 &&
+    email.length <= 254 &&
+    /^[A-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?(?:\.[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?)+$/i.test(
+      email,
+    )
+  );
+}
+
+function isMessage(value: unknown, required: boolean): value is string {
+  return (
+    typeof value === "string" &&
+    value.length <= 5000 &&
+    !/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/.test(value) &&
+    (!required || value.trim().length > 0)
   );
 }
 
@@ -46,7 +67,15 @@ function responseError(message: string, status: number) {
 }
 
 function cleanHeaderValue(value: string) {
-  return value.replace(/[\r\n]+/g, " ").trim().slice(0, 160);
+  return value.replace(/[\u0000-\u001F\u007F]+/g, " ").trim().slice(0, 160);
+}
+
+function htmlField(label: string, value: string) {
+  return `<p><strong>${escapeHtml(label)}:</strong> ${escapeHtml(value)}</p>`;
+}
+
+function htmlMessage(value: string) {
+  return `<p><strong>Message:</strong><br>${escapeHtml(value).replace(/\r\n?|\n/g, "<br>")}</p>`;
 }
 
 function isSubmission(value: Record<string, unknown>): value is Record<string, unknown> & Submission {
@@ -56,7 +85,8 @@ function isSubmission(value: Record<string, unknown>): value is Record<string, u
       isEmail(value.email) &&
       typeof value.subject === "string" &&
       value.subject.length <= 160 &&
-      isText(value.message, 1, 5000)
+      !/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/.test(value.subject) &&
+      isMessage(value.message, true)
     );
   }
 
@@ -66,6 +96,7 @@ function isSubmission(value: Record<string, unknown>): value is Record<string, u
       isEmail(value.email) &&
       typeof value.phone === "string" &&
       value.phone.length <= 30 &&
+      !/[\u0000-\u001F\u007F]/.test(value.phone) &&
       (!value.phone.trim() || /^[+()\d\s.-]{7,20}$/.test(value.phone.trim())) &&
       typeof value.relationship === "string" &&
       relationships.includes(value.relationship) &&
@@ -74,8 +105,7 @@ function isSubmission(value: Record<string, unknown>): value is Record<string, u
       grades.includes(value.grade) &&
       typeof value.startTerm === "string" &&
       startTerms.includes(value.startTerm) &&
-      typeof value.message === "string" &&
-      value.message.length <= 5000
+      isMessage(value.message, false)
     );
   }
 
@@ -84,22 +114,32 @@ function isSubmission(value: Record<string, unknown>): value is Record<string, u
 
 function formatEmail(submission: Submission) {
   if (submission.formType === "contact") {
+    const subject = cleanHeaderValue(submission.subject);
+
     return {
-      subject: `Contact form: ${cleanHeaderValue(submission.subject) || "Website inquiry"}`,
+      subject: `Contact form: ${subject || "Website inquiry"}`,
       replyTo: submission.email.trim(),
       text: [
         "New contact form submission",
         "",
         `Name: ${submission.name.trim()}`,
         `Email: ${submission.email.trim()}`,
-        `Subject: ${submission.subject.trim() || "Not provided"}`,
+        `Subject: ${subject || "Not provided"}`,
         "",
         "Message:",
         submission.message.trim(),
       ].join("\n"),
+      html: [
+        "<h1>New contact form submission</h1>",
+        htmlField("Name", submission.name.trim()),
+        htmlField("Email", submission.email.trim()),
+        htmlField("Subject", subject || "Not provided"),
+        htmlMessage(submission.message.trim()),
+      ].join(""),
     };
   }
 
+  const message = submission.message.trim() || "Please contact me with next steps.";
   return {
     subject: `Admissions inquiry: ${cleanHeaderValue(submission.studentName)}`,
     replyTo: submission.email.trim(),
@@ -115,8 +155,19 @@ function formatEmail(submission: Submission) {
       `Preferred start: ${submission.startTerm}`,
       "",
       "Message:",
-      submission.message.trim() || "Please contact me with next steps.",
+      message,
     ].join("\n"),
+    html: [
+      "<h1>New admissions inquiry</h1>",
+      htmlField("Parent / guardian", submission.guardianName.trim()),
+      htmlField("Relationship", submission.relationship),
+      htmlField("Email", submission.email.trim()),
+      htmlField("Phone", submission.phone.trim() || "Not provided"),
+      htmlField("Student", submission.studentName.trim()),
+      htmlField("Intended grade", submission.grade),
+      htmlField("Preferred start", submission.startTerm),
+      htmlMessage(message),
+    ].join(""),
   };
 }
 
@@ -155,6 +206,7 @@ export async function POST(request: Request) {
       replyTo: email.replyTo,
       subject: email.subject,
       text: email.text,
+      html: email.html,
     });
   } catch (error) {
     console.error("Failed to send website form email:", error);
